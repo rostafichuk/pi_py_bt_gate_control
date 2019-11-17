@@ -18,6 +18,10 @@ I will be posting the code and instructions on building the hardware on my perso
 
 
 
-sudo apt-get install python3, python3-pip, python3-bluez, python3-rpi.gpio
+sudo apt-get install python3, python3-dev, python3-pip, python3-rpi.gpio
+
+sudo pip3 install RPi.GPIO
+
+sudo pip3 install pybluez ? fails ?
 
 
