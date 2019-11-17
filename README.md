@@ -1,5 +1,6 @@
 # pi_py_bt_gate_control
-Raspberry Pi and Python Gate Control using Bluetooth Proximity for access control
+Raspberry Pi and Python Driveway Gate Control using Bluetooth Proximity for access control.
+Note: This is not meant to be secure, it is not, it is meant to be convenient.  Anyone can circumvent any gate security system with a 50 dollar set of lock cutters or even a big rock, no need for bank level security here (these aren't the droids your looking for).
 
 This is written to run on a Raspberry Pi Zero W
 
