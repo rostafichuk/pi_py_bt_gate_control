@@ -16,3 +16,8 @@ You will need to create a file in the same directory as the code.
  
 I will be posting the code and instructions on building the hardware on my personal website www.ostafichuk.com when I get a chance...
 
+
+
+sudo apt-get install python3, python3-pip
+sudo pip3 install pybluez
+
