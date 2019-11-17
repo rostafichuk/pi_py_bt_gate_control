@@ -17,8 +17,9 @@ You will need to create a file in the same directory as the code.
 I will be posting the code and instructions on building the hardware on my personal website www.ostafichuk.com when I get a chance...
 
 
+Run these commands to get bluetooth and gpio working:
 
-sudo apt-get install python3, python3-dev, python3-pip, python3-rpi.gpio, bluetooth
+sudo apt-get install python3, python3-dev, python3-pip, python3-rpi.gpio, bluetooth, libbluetooth-dev
 
 sudo pip3 install RPi.GPIO
 
