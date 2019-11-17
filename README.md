@@ -9,3 +9,10 @@ Instead of using a remote control to operate this gate controller, the Bluetooth
 This code is in progress and does not support a strain sensor for safety shutoff yet, only an emergency stop button so far.
 
 Use it at your own risk!
+
+How to use this:
+You will need to create a file in the same directory as the code.  
+  Name the file MACList.txt and put in the MAC addresses of all the devices you want to open the gate (one on each line).  The devices do not need to be discoverable or even paired to the PI for this code to work.
+ 
+I will be posting the code and instructions on building the hardware on my personal website www.ostafichuk.com when I get a chance...
+
