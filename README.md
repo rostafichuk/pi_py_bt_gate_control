@@ -25,4 +25,13 @@ sudo pip3 install RPi.GPIO
 
 sudo pip3 install pybluez
 
+git clone 'this repo clone string'
 
+For auto start of app on boot:
+sudo nano /etc/rc.local
+
+put the line:
+
+sudo python3 /home/pi/pi_py_bt_gate_control.py &
+
+before the line with 'exit 0' near the bottom.
