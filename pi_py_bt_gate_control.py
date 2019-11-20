@@ -5,21 +5,67 @@
 # 
 #
 
+from picamera import PiCamera
 import bluetooth, time
 import RPi.GPIO as io # using RPi.GPIO
 
+bCameraExists = 1
+
+# You can hardcode the desired device ID here as a string to skip the discovery stage but you need to disable the load below
+vAddr = ["A1:B1:C1:D1:E1:F1"] # list of approved Bluetooth MAC addresses
+
+search_time = 10
+
+# set raspi pin outputs
+pin_HBridge_1 = 17
+pin_HBridge_2 = 27
+pin_led_green = 23
+pin_led_red = 24
+pin_emergency_stop = 25
+pin_motion_detection = 5 # used to take a picture at the gate
+
+def SetRedLightOn():
+    io.output(pin_led_red,1)
+def SetRedLightOff():
+    io.output(pin_led_red,0)
+
+def SetGreenLightOn():
+    io.output(pin_led_red,1)
+def SetGreenLightOff():
+    io.output(pin_led_red,0)
+
+def SetHBridgeDirection(n):
+    if n == 0:
+        # turn off
+        io.output(pin_HBridge_1,1)
+        io.output(pin_HBridge_2,1)
+    elif n > 0:
+        io.output(pin_HBridge_1,0)
+        io.output(pin_HBridge_2,1)
+    elif n < 0:
+        io.output(pin_HBridge_1,1)
+        io.output(pin_HBridge_2,0)
+
+
 # enclose program in a try catch to make sure the GPIO cleanup is run
+camera = 0
 try:
+    if bCameraExists:
+        try:
+            print( "Initializing the Camera")
+            camera = PiCamera()
+        except:
+            bCameraExists = 0
+            print( "No camera found" )
+        if bCameraExists:
+            camera.resolution = (1024,768)
+            camera.start_preview() # this must be running to take a picture?
+            time.sleep(2) # 2 secs to warm up camera
+            print( "Camera Ready")
+        
+    
+    print( "Setting up the GPIO pins")
     io.setmode(io.BCM)
-
-    search_time = 10
-
-    # set raspi pin outputs
-    pin_HBridge_1 = 17
-    pin_HBridge_2 = 27
-    pin_led_green = 23
-    pin_led_red = 24
-    pin_emergency_stop = 25
 
     # set pin modes
     io.setup(pin_led_green,io.OUT)
@@ -29,32 +75,10 @@ try:
     io.setup(pin_HBridge_2,io.OUT)
 
     io.setup(pin_emergency_stop,io.IN, pull_up_down=io.PUD_DOWN) # make pin an input (down means emergency stop when no connection, use that as the default for safety!)
-    io.setup(pin_emergency_stop,io.IN, pull_up_down=io.PUD_UP) 
+    #io.setup(pin_emergency_stop,io.IN, pull_up_down=io.PUD_UP)  # for testing
 
-    def SetRedLightOn():
-        io.output(pin_led_red,1)
-    def SetRedLightOff():
-        io.output(pin_led_red,0)
-
-    def SetGreenLightOn():
-        io.output(pin_led_red,1)
-    def SetGreenLightOff():
-        io.output(pin_led_red,0)
-
-    def SetHBridgeDirection(n):
-        if n == 0:
-            # turn off
-            io.output(pin_HBridge_1,1)
-            io.output(pin_HBridge_2,1)
-        elif n > 0:
-            io.output(pin_HBridge_1,0)
-            io.output(pin_HBridge_2,1)
-        elif n < 0:
-            io.output(pin_HBridge_1,1)
-            io.output(pin_HBridge_2,0)
-
-    # You can hardcode the desired device ID here as a string to skip the discovery stage
-    vAddr = ["A1:B1:C1:D1:E1:F1"] # list of approved Bluetooth MAC addresses
+    io.setup(pin_motion_detection,io.IN, pull_up_down=io.PUD_UP)
+    
     # load the real MAC List from file
     try:
         with open('MACList.txt', 'r') as f:
@@ -116,6 +140,12 @@ try:
             if btDeviceName != None:
                 break # found an approved device, ok to exit loop!
             
+        if bCameraExists and io.input(pin_motion_detection) == 0 and time_s > lastTimeForPic_s + 5:
+            # take a picture and send it via wifi to server
+            sPictureFileName = "/tmp/pic"+time_s+".jpg";
+            camera.capture(sPictureFileName)
+            lastTimeForPic_s = time.time()
+            print("Motion event, picture taken")
 
         if io.input(pin_emergency_stop) == 0:
             print("# emergency shutdown!")
@@ -234,4 +264,7 @@ except KeyboardInterrupt:
     pass
 finally:
     io.cleanup()
-    print( "Exiting Program, cleaned up GPIO" )    
+    print( "Exiting Program, cleaned up GPIO" )
+    if bCameraExists:
+        camera.close()
+        print( "Closed Camera")
