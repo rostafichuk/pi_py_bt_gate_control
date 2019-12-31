@@ -256,7 +256,7 @@ try:
             # ===================================================
             if current_state == "waitBeforeOpen":
                 print(current_state,"#flash green light")
-                if nLoop % 1 == 0:
+                if nLoop % 2 == 0:
                     SetGreenLightOn()
                 else:
                     SetGreenLightOff()
@@ -274,7 +274,7 @@ try:
                 
             if current_state == "waitBeforeClose":
                 print(current_state,"# flash red light")
-                if nLoop % 1 == 0:
+                if nLoop % 2 == 0:
                     SetRedLightOn()
                 else:
                     SetRedLightOff()            
