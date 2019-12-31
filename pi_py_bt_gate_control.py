@@ -41,14 +41,14 @@ pin_emergency_stop = 25
 pin_motion_detection = 21 # used to take a picture at the gate
 
 def SetRedLightOn():
-    io.output(pin_led_red,1)
-def SetRedLightOff():
     io.output(pin_led_red,0)
+def SetRedLightOff():
+    io.output(pin_led_red,1)
 
 def SetGreenLightOn():
-    io.output(pin_led_red,1)
-def SetGreenLightOff():
     io.output(pin_led_red,0)
+def SetGreenLightOff():
+    io.output(pin_led_red,1)
 
 def SetHBridgeDirection(n):
     if n == 0:
@@ -293,7 +293,7 @@ try:
 
         # Arbitrary wait time to reduce cpu load
         # Pi4 uses 2% CPU typically for this program
-        time.sleep(1)
+        time.sleep(0.5)
 except KeyboardInterrupt:
     pass
 finally:
