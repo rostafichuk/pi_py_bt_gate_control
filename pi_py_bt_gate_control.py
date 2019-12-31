@@ -189,9 +189,10 @@ try:
         else:
             # do normal operations
             # Flip the LED pin on or off depending on whether the device is nearby
-            if btDeviceName == None:
+            if btDeviceName == None and nStateChanged < time_s-nSecondsToWaitBeforeClose:
                 if nStateChanged_ts > time_s-1:
                     print(sDateTime , "# no approved device in range! Set Gate to ", desired_state , ". Gate Mode is " , sPrimaryGateMode)
+                    
                 if desired_state == "opened" and current_state != "opened":
                     if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
                         current_state = "waitBeforeOpen";
