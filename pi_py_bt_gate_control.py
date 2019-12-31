@@ -63,6 +63,11 @@ def SetHBridgeDirection(n):
         io.output(pin_HBridge_1,1)
         io.output(pin_HBridge_2,0)
 
+def turnOffLightsAndHBridge():
+    SetRedLightOff()
+    SetGreenLightOff()
+    SetHBridgeDirection(0)
+    
 
 # enclose program in a try catch to make sure the GPIO cleanup is run
 camera = 0
@@ -95,7 +100,13 @@ try:
     io.setup(pin_emergency_stop,io.IN, pull_up_down=io.PUD_UP)  # for testing (connection means stop, bad!)
 
     io.setup(pin_motion_detection,io.IN, pull_up_down=io.PUD_UP)
-    
+
+    print("Bluetooth Proximity Detection")
+    print("=============================\n")
+    SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
+    SetRedLightOn()
+    SetGreenLightOn()
+
     # load the real MAC List from file
     try:
         with open('MACList.txt', 'r') as f:
@@ -108,15 +119,13 @@ try:
     # system time
     localtime = time.localtime(time.time())
 
-
-    print("Bluetooth Proximity Detection\n")
-    SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
-
-    print("Scanning for approved devices %s." % (vAddr))
+    print("Begin Scanning for approved devices...")
 
     #GPIO.setup(led_pin, GPIO.OUT)
+    nLoop = 0
     while True:
         # always need the current time!
+        nLoop += 1
         time_s = time.time()
         localtime = time.localtime(time_s) # keep localtime current
         sDateTime = datetime.datetime.now()
@@ -175,9 +184,7 @@ try:
         if io.input(pin_emergency_stop) == 0:
             print(sDateTime , "# emergency shutdown!")
             #Turn off H Bridge and flash lights and do not check Bluetooth or system states
-            SetHBridgeDirection(0) # stop H Bridge!
-            SetRedLightOff()
-            SetGreenLightOff()
+            turnOffLightsAndHBridge()
             time.sleep(1)
             SetRedLightOn()
             SetGreenLightOn()            
@@ -249,7 +256,7 @@ try:
             # ===================================================
             if current_state == "waitBeforeOpen":
                 print(current_state,"#flash green light")
-                if (time_s * 2.0) % 2 == 0:
+                if nLoop % 1 == 0:
                     SetGreenLightOn()
                 else:
                     SetGreenLightOff()
@@ -263,14 +270,11 @@ try:
             if current_state == "opened":
                 if nStateChanged_ts > time_s-1:
                     print(current_state,"#turn off lights and H Bridge")
-                    SetHBridgeDirection(0)
-                    SetGreenLightOff()
-                    SetRedLightOff()
-
+                    turnOffLightsAndHBridge()
                 
             if current_state == "waitBeforeClose":
                 print(current_state,"# flash red light")
-                if (time_s * 2.0) % 2 == 0:
+                if nLoop % 1 == 0:
                     SetRedLightOn()
                 else:
                     SetRedLightOff()            
@@ -283,9 +287,7 @@ try:
             if current_state == "closed":
                 if nStateChanged_ts > time_s-1:
                     print(current_state,"#turn off lights and H Bridge")
-                    SetHBridgeDirection(0)
-                    SetRedLightOff()
-                    SetGreenLightOff()
+                    turnOffLightsAndHBridge()
         # end of else condition on emergency button!  Damn python needs brackets like a real language!
         
 
