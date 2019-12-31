@@ -14,6 +14,8 @@ bCameraExists = 1
 # You can hardcode the desired device ID here as a string to skip the discovery stage but you need to disable the load below
 vAddr = ["A1:B1:C1:D1:E1:F1"] # list of approved Bluetooth MAC addresses
 
+vMode = ["Closed at Night","8","21"] # mode, open 24hr time, closed 24hr time
+
 search_time = 10
 
 # set raspi pin outputs
@@ -22,7 +24,7 @@ pin_HBridge_2 = 27
 pin_led_green = 23
 pin_led_red = 24
 pin_emergency_stop = 25
-pin_motion_detection = 5 # used to take a picture at the gate
+pin_motion_detection = 21 # used to take a picture at the gate
 
 def SetRedLightOn():
     io.output(pin_led_red,1)
@@ -74,8 +76,8 @@ try:
     io.setup(pin_HBridge_1,io.OUT)
     io.setup(pin_HBridge_2,io.OUT)
 
-    io.setup(pin_emergency_stop,io.IN, pull_up_down=io.PUD_DOWN) # make pin an input (down means emergency stop when no connection, use that as the default for safety!)
-    #io.setup(pin_emergency_stop,io.IN, pull_up_down=io.PUD_UP)  # for testing
+    #io.setup(pin_emergency_stop,io.IN, pull_up_down=io.PUD_DOWN) # make pin an input (down means emergency stop when no connection, use that as the default for safety!)
+    io.setup(pin_emergency_stop,io.IN, pull_up_down=io.PUD_UP)  # for testing (connection means stop, bad!)
 
     io.setup(pin_motion_detection,io.IN, pull_up_down=io.PUD_UP)
     
@@ -92,8 +94,9 @@ try:
 
     # Primary Gate Mode
     sPrimaryGateMode = "Closed at Night" # can be "Closed at Night" or "Always Closed" or "Always Open"
-    openHour_24 = 8 # open at 8 am
-    closeHour_24 = 21 # close at 9pm
+    sPrimaryGateMode = "Always Closed" # for testing
+    openHour_24 = 8 # open at 8 am for "Closed at Night" mode
+    closeHour_24 = 21 # close at 9pm for "Closed at Night" mode
 
 
     # time values used to adjust the delays between states of the gate system
@@ -119,15 +122,37 @@ try:
         time_s = time.time()
         localtime = time.localtime(time_s) # keep localtime current
 
+        # Once every 15 seconds load the primary gate mode and parameters from text file
+        sPrevGateMode = sPrimaryGateMode
+        try:
+            with open('GateMode.txt', 'r') as f:
+                vMode = f.read().splitlines()
+                
+            if len(vMode) > 0 and len(vMode[0]) > 5:
+                sPrimaryGateMode = vMode[0]
+            if len(vMode) > 1 and len(vMode[1]) > 0:
+                openHour_24 = int(vMode[1])
+            if len(vMode) > 2 and len(vMode[2]) > 0:
+                closeHour_24 = int(vMode[2])
+        finally:
+            if sPrevGateMode != sPrimaryGateMode:
+                if sPrimaryGateMode == "Closed at Night":
+                    print( "Gate Mode" , sPrimaryGateMode , " open=" , openHour_24 , " close=" , closeHour_24 )
+                else:
+                    print( "Gate Mode" , sPrimaryGateMode )
+
         # set the desired_state based on the Primary Gate Mode
         if sPrimaryGateMode == "Closed at Night":
             if localtime.tm_hour >= openHour_24:
                 desired_state = "Opened"
             else:
                 desired_state = "Closed"
-        if sPrimaryGateMode == "Always Closed":
+        elif sPrimaryGateMode == "Always Closed":
             desired_state = "Closed"
-        if sPrimaryGateMode == "Always Open":
+        elif sPrimaryGateMode == "Always Open":
+            desired_state = "Opened"
+        else:
+            # failed to have a valid gate mode, open it by default
             desired_state = "Opened"
 
         # Try to gather information from the desired Bluetooth device.
@@ -149,11 +174,14 @@ try:
 
         if io.input(pin_emergency_stop) == 0:
             print("# emergency shutdown!")
-            #Turn off H Bridge and lights and do not check Bluetooth or system states
+            #Turn off H Bridge and flash lights and do not check Bluetooth or system states
             SetHBridgeDirection(0) # stop H Bridge!
             SetRedLightOff()
-            SetGreenLightOff()        
-            time.sleep(4) # extra sleep time in emergency stop mode, only check button once every 5 seconds
+            SetGreenLightOff()
+            time.sleep(2)
+            SetRedLightOn()
+            SetGreenLightOn()            
+            time.sleep(2) # extra sleep time in emergency stop mode, only check button once every 2 seconds
         else:
             # do normal operations
             # Flip the LED pin on or off depending on whether the device is nearby
