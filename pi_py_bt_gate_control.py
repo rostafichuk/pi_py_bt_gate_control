@@ -14,9 +14,28 @@ bCameraExists = 1
 # You can hardcode the desired device ID here as a string to skip the discovery stage but you need to disable the load below
 vAddr = ["A1:B1:C1:D1:E1:F1"] # list of approved Bluetooth MAC addresses
 
-vMode = ["Closed at Night","8","21"] # mode, open 24hr time, closed 24hr time
+vMode = ["open","8","21"] # mode [night,open,closed], open 24hr time, closed 24hr time
+# Primary Gate Mode
+sPrimaryGateMode = vMode[0] # can be "night" or "closed" or "open"
+openHour_24 = int(vMode[1]) # open at 8 am for "night" mode
+closeHour_24 = int(vMode[2]) # close at 9pm for "night" mode
 
-search_time = 10
+if sPrimaryGateMode == "night":
+    print( "Gate Mode ->" , sPrimaryGateMode , " open=" , openHour_24 , " close=" , closeHour_24 )
+else:
+    print( "Gate Mode ->" , sPrimaryGateMode )
+
+
+# time values used to adjust the delays between states of the gate system
+nSecondsToWaitBeforeOpen = 5
+nSecondsToWaitBeforeClose = 10
+nSecondsToRunOpening = 40
+nSecondsToRunClosing = 40
+# system states = waitBeforeOpen,opening,opened,waitBeforeClose,closing,closed
+current_state = "waitBeforeOpen" # onstartup we need to be in a transition state to make sure gate gets moved
+desired_state = "opened" # onstartup assume gate should be opened and is in an unknown state, th
+nStateChanged_ts = time.time()
+
 
 # set raspi pin outputs
 pin_HBridge_1 = 17
@@ -86,29 +105,12 @@ try:
         with open('MACList.txt', 'r') as f:
             vAddr = f.read().splitlines()
     finally:
-        print( "Loaded Approved MAC List")
+        print( "Loaded Approved MAC List:")
         print( vAddr )
+        print( "=========================")
 
     # system time
     localtime = time.localtime(time.time())
-
-    # Primary Gate Mode
-    sPrimaryGateMode = "Closed at Night" # can be "Closed at Night" or "Always Closed" or "Always Open"
-    sPrimaryGateMode = "Always Closed" # for testing
-    openHour_24 = 8 # open at 8 am for "Closed at Night" mode
-    closeHour_24 = 21 # close at 9pm for "Closed at Night" mode
-
-
-    # time values used to adjust the delays between states of the gate system
-    nSecondsToWaitBeforeOpen = 5
-    nSecondsToWaitBeforeClose = 10
-    nSecondsToRunOpening = 40
-    nSecondsToRunClosing = 40
-    # system states = WaitBeforeOpen,Opening,Opened,WaitBeforeClose,Closing,Closed
-
-    nStateChanged_ts = time.time()
-    current_state = "WaitBeforeOpen" # onstartup we need to be in a transition state to make sure gate gets moved
-    desired_state = "Opened" # onstartup assume gate should be opened and is in an unknown state, th
 
 
     print("Bluetooth Proximity Detection\n")
@@ -128,32 +130,32 @@ try:
             with open('GateMode.txt', 'r') as f:
                 vMode = f.read().splitlines()
                 
-            if len(vMode) > 0 and len(vMode[0]) > 5:
-                sPrimaryGateMode = vMode[0]
+            if len(vMode) > 0 and len(vMode[0]) > 2:
+                sPrimaryGateMode = vMode[0].lower()
             if len(vMode) > 1 and len(vMode[1]) > 0:
                 openHour_24 = int(vMode[1])
             if len(vMode) > 2 and len(vMode[2]) > 0:
                 closeHour_24 = int(vMode[2])
         finally:
             if sPrevGateMode != sPrimaryGateMode:
-                if sPrimaryGateMode == "Closed at Night":
-                    print( "Gate Mode" , sPrimaryGateMode , " open=" , openHour_24 , " close=" , closeHour_24 )
+                if sPrimaryGateMode == "night":
+                    print( "Gate Mode ->" , sPrimaryGateMode , " open=" , openHour_24 , " close=" , closeHour_24 )
                 else:
-                    print( "Gate Mode" , sPrimaryGateMode )
+                    print( "Gate Mode ->" , sPrimaryGateMode )
 
         # set the desired_state based on the Primary Gate Mode
-        if sPrimaryGateMode == "Closed at Night":
+        if sPrimaryGateMode == "night":
             if localtime.tm_hour >= openHour_24:
-                desired_state = "Opened"
+                desired_state = "opened"
             else:
-                desired_state = "Closed"
-        elif sPrimaryGateMode == "Always Closed":
-            desired_state = "Closed"
-        elif sPrimaryGateMode == "Always Open":
-            desired_state = "Opened"
+                desired_state = "closed"
+        elif sPrimaryGateMode == "closed":
+            desired_state = "closed"
+        elif sPrimaryGateMode == "open":
+            desired_state = "opened"
         else:
             # failed to have a valid gate mode, open it by default
-            desired_state = "Opened"
+            desired_state = "opened"
 
         # Try to gather information from the desired Bluetooth device.
         # ===================================================
@@ -161,9 +163,10 @@ try:
         # to reduce false negatives.
         btDeviceName = None
         for addr1 in vAddr:
-            btDeviceName = bluetooth.lookup_name(addr1, timeout=10)
-            if btDeviceName != None:
-                break # found an approved device, ok to exit loop!
+            if ":" in addr1:
+                btDeviceName = bluetooth.lookup_name(addr1, timeout=10)
+                if btDeviceName != None:
+                    break # found an approved device, ok to exit loop!
             
         if bCameraExists and io.input(pin_motion_detection) == 0 and time_s > lastTimeForPic_s + 5:
             # take a picture and send it via wifi to server
@@ -187,24 +190,24 @@ try:
             # Flip the LED pin on or off depending on whether the device is nearby
             if btDeviceName == None:
                 if nStateChanged_ts > time_s-1:
-                    print("# no approved device in range! Set Gate to ", desired_state , ". Primary Gate Mode is " , sPrimaryGateMode)
-                if desired_state == "Opened" and current_state != "Opened":
-                    if current_state != "WaitBeforeOpen" and current_state != "Opening" and current_state != "Opened":
-                        current_state = "WaitBeforeOpen";
+                    print("# no approved device in range! Set Gate to ", desired_state , ". Gate Mode is " , sPrimaryGateMode)
+                if desired_state == "opened" and current_state != "opened":
+                    if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
+                        current_state = "waitBeforeOpen";
                         nStateChanged_ts = time.time()
                         SetHBridgeDirection(0) # stop H Bridge!
                         print("No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
-                if desired_state == "Closed" and current_state != "Closed":
-                    if current_state != "WaitBeforeClose" and current_state != "Closing" and current_state != "Closed":
-                        current_state = "WaitBeforeClose";
+                if desired_state == "closed" and current_state != "closed":
+                    if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed":
+                        current_state = "waitBeforeClose";
                         nStateChanged_ts = time.time()
                         SetHBridgeDirection(0) # stop H Bridge!
                         print("No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
             else:
                 if nStateChanged_ts > time_s-1:
                     print("# detected an approved device")
-                if current_state != "WaitBeforeOpen" and current_state != "Opening" and current_state != "Opened":            
-                    current_state = "WaitBeforeOpen";
+                if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":            
+                    current_state = "waitBeforeOpen";
                     nStateChanged_ts = time.time()
                     SetHBridgeDirection(0) # stop H Bridge!
                     print(addr, " ", btDeviceName, " detected! Open the Gate in " , nSecondsToWaitBeforeOpen, "s! ", nStateChanged_ts)
@@ -212,38 +215,38 @@ try:
 
             # handle state CHANGES!
             # ===================================================
-            # : WaitBeforeOpen,Open,Opened,WaitBeforeClose,Close,Closed
+            # : waitBeforeOpen,open,opened,waitBeforeClose,close,closed
 
-            if current_state == "WaitBeforeOpen":
+            if current_state == "waitBeforeOpen":
                 if nStateChanged_ts < time_s - nSecondsToWaitBeforeOpen:
                     # 30 seconds has expired, change state, new ts!
-                    current_state = "Opening"
+                    current_state = "opening"
                     nStateChanged_ts = time_s
             
-            if current_state == "Opening":
+            if current_state == "opening":
                 if nStateChanged_ts < time_s-nSecondsToRunOpening:
                     # 30 seconds has expired, change state, new ts!
                     SetHBridgeDirection(0)
-                    current_state = "Opened"
+                    current_state = "opened"
                     nStateChanged_ts = time_s
                     
-            if current_state == "WaitBeforeClose":
+            if current_state == "waitBeforeClose":
                 if nStateChanged_ts < time_s-nSecondsToWaitBeforeClose:
                     # 30 seconds has expired, change state, new ts!
-                    current_state = "Closing"
+                    current_state = "closing"
                     nStateChanged_ts = time_s
             
-            if current_state == "Closing":
+            if current_state == "closing":
                 if nStateChanged_ts < time_s - nSecondsToRunClosing:
                     # 30 seconds has expired, change state, new ts!
                     SetHBridgeDirection(0)
-                    current_state = "Closed"
+                    current_state = "closed"
                     nStateChanged_ts = time_s
             
             
             # Handle behaviour during a specific state
             # ===================================================
-            if current_state == "WaitBeforeOpen":
+            if current_state == "waitBeforeOpen":
                 print(current_state,"#flash green light")
                 if (time_s * 2.0) % 2 == 0:
                     SetGreenLightOn()
@@ -251,12 +254,12 @@ try:
                     SetGreenLightOff()
 
 
-            if current_state == "Opening":
+            if current_state == "opening":
                 print(current_state, "#Solid green light","#set H bridge circuit to open gate")
                 SetGreenLightOn()
                 SetHBridgeDirection(-1)
                 
-            if current_state == "Opened":
+            if current_state == "opened":
                 if nStateChanged_ts > time_s-1:
                     print(current_state,"#turn off lights and H Bridge")
                     SetHBridgeDirection(0)
@@ -264,19 +267,19 @@ try:
                     SetRedLightOff()
 
                 
-            if current_state == "WaitBeforeClose":
+            if current_state == "waitBeforeClose":
                 print(current_state,"# flash red light")
                 if (time_s * 2.0) % 2 == 0:
                     SetRedLightOn()
                 else:
                     SetRedLightOff()            
 
-            if current_state == "Closing":
+            if current_state == "closing":
                 print(current_state,"# Solid red light","# set H bridge circuit to close gate")
                 SetRedLightOn()
                 SetHBridgeDirection(1)
 
-            if current_state == "Closed":
+            if current_state == "closed":
                 if nStateChanged_ts > time_s-1:
                     print(current_state,"#turn off lights and H Bridge")
                     SetHBridgeDirection(0)
