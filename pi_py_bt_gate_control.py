@@ -20,20 +20,15 @@ sPrimaryGateMode = vMode[0] # can be "night" or "closed" or "open"
 openHour_24 = int(vMode[1]) # open at 8 am for "night" mode
 closeHour_24 = int(vMode[2]) # close at 9pm for "night" mode
 
-if sPrimaryGateMode == "night":
-    print( "Gate Mode ->" , sPrimaryGateMode , " open=" , openHour_24 , " close=" , closeHour_24 )
-else:
-    print( "Gate Mode ->" , sPrimaryGateMode )
-
 
 # time values used to adjust the delays between states of the gate system
 nSecondsToWaitBeforeOpen = 5
-nSecondsToWaitBeforeClose = 10
+nSecondsToWaitBeforeClose = 20
 nSecondsToRunOpening = 40
 nSecondsToRunClosing = 40
 # system states = waitBeforeOpen,opening,opened,waitBeforeClose,closing,closed
-current_state = "waitBeforeOpen" # onstartup we need to be in a transition state to make sure gate gets moved
-desired_state = "opened" # onstartup assume gate should be opened and is in an unknown state, th
+current_state = "unknown" # onstartup we need to be in a transition state to make sure gate gets moved
+desired_state = "opened" # onstartup assume gate should be opened and is in an unknown state
 nStateChanged_ts = time.time()
 
 
@@ -60,6 +55,7 @@ def SetHBridgeDirection(n):
         # turn off
         io.output(pin_HBridge_1,1)
         io.output(pin_HBridge_2,1)
+        print("Stop Gate Motion")
     elif n > 0:
         io.output(pin_HBridge_1,0)
         io.output(pin_HBridge_2,1)
@@ -114,7 +110,7 @@ try:
 
 
     print("Bluetooth Proximity Detection\n")
-    print("Startup desired state = ", current_state)
+    SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
 
     print("Scanning for approved devices %s." % (vAddr))
 
@@ -182,25 +178,27 @@ try:
             SetHBridgeDirection(0) # stop H Bridge!
             SetRedLightOff()
             SetGreenLightOff()
-            time.sleep(2)
+            time.sleep(1)
             SetRedLightOn()
             SetGreenLightOn()            
-            time.sleep(2) # extra sleep time in emergency stop mode, only check button once every 2 seconds
+            time.sleep(1) # extra sleep time in emergency stop mode, only check button once every 2 seconds
         else:
             # do normal operations
             # Flip the LED pin on or off depending on whether the device is nearby
-            if btDeviceName == None and nStateChanged < time_s-nSecondsToWaitBeforeClose:
+            if btDeviceName == None:
                 if nStateChanged_ts > time_s-1:
-                    print(sDateTime , "# no approved device in range! Set Gate to ", desired_state , ". Gate Mode is " , sPrimaryGateMode)
+                    print(sDateTime , "No approved device in range!")
                     
                 if desired_state == "opened" and current_state != "opened":
                     if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
+                        SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
                         current_state = "waitBeforeOpen";
                         nStateChanged_ts = time.time()
                         SetHBridgeDirection(0) # stop H Bridge!
                         print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
                 if desired_state == "closed" and current_state != "closed":
                     if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed":
+                        SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
                         current_state = "waitBeforeClose";
                         nStateChanged_ts = time.time()
                         SetHBridgeDirection(0) # stop H Bridge!
@@ -208,7 +206,8 @@ try:
             else:
                 if nStateChanged_ts > time_s-1:
                     print(sDateTime , "# detected an approved device" , addr1 )
-                if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":            
+                if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
+                    SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
                     current_state = "waitBeforeOpen";
                     nStateChanged_ts = time.time()
                     SetHBridgeDirection(0) # stop H Bridge!
