@@ -210,7 +210,7 @@ try:
                     current_state = "waitBeforeOpen";
                     nStateChanged_ts = time.time()
                     SetHBridgeDirection(0) # stop H Bridge!
-                    print(addr, " ", btDeviceName, " detected! Open the Gate in " , nSecondsToWaitBeforeOpen, "s! ", nStateChanged_ts)
+                    print(addr1, " ", btDeviceName, " detected! Open the Gate in " , nSecondsToWaitBeforeOpen, "s! ", nStateChanged_ts)
                     
 
             # handle state CHANGES!
