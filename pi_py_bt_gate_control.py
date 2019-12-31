@@ -297,6 +297,7 @@ try:
 except KeyboardInterrupt:
     pass
 finally:
+    turnOffLightsAndHBridge() # make sure all is off if program crashes!
     io.cleanup()
     print("Exiting Program, cleaned up GPIO" )
     if bCameraExists:
