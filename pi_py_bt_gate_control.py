@@ -14,7 +14,7 @@ bCameraExists = 1
 # You can hardcode the desired device ID here as a string to skip the discovery stage but you need to disable the load below
 vAddr = ["A1:B1:C1:D1:E1:F1"] # list of approved Bluetooth MAC addresses
 
-vMode = ["closed","8","21"] # mode [night,open,closed,testio], open 24hr time, closed 24hr time
+vMode = ["bootup","8","21"] # mode [night,open,closed,testio], open 24hr time, closed 24hr time
 # Primary Gate Mode
 sPrimaryGateMode = vMode[0] # can be "night" or "closed" or "open"
 openHour_24 = int(vMode[1]) # open at 8 am = 8 for "night" mode
@@ -24,8 +24,9 @@ closeHour_24 = int(vMode[2]) # close at 9pm = 21 for "night" mode
 # time values used to adjust the delays between states of the gate system
 nSecondsToWaitBeforeOpen = 5
 nSecondsToWaitBeforeClose = 20
-nSecondsToRunOpening = 40
-nSecondsToRunClosing = 40
+nSecondsToRunOpening = 50
+nSecondsToRunClosing = 50
+
 # system states = waitBeforeOpen,opening,opened,waitBeforeClose,closing,closed
 current_state = "unknown" # onstartup we need to be in a transition state to make sure gate gets moved
 desired_state = "closed" # onstartup we want to close the gate
@@ -44,9 +45,9 @@ def SetRedLightOff():
     io.output(pin_led_red,1)
 
 def SetGreenLightOn():
-    io.output(pin_led_red,0)
+    io.output(pin_led_green,0)
 def SetGreenLightOff():
-    io.output(pin_led_red,1)
+    io.output(pin_led_green,1)
 
 def SetHBridgeDirection(n):
     if n == 0:
@@ -65,7 +66,17 @@ def turnOffLightsAndHBridge():
     SetRedLightOff()
     SetGreenLightOff()
     SetHBridgeDirection(0)
-    
+
+def flashBothLights(n):
+    print( "Flash both lights", n , "times" )
+    for i in range(0,n):
+        SetRedLightOn() 
+        SetGreenLightOn()
+        time.sleep(0.5)
+        SetRedLightOff() 
+        SetGreenLightOff()
+        time.sleep(0.5)
+
 
 # enclose program in a try catch to make sure the GPIO cleanup is run
 camera = 0
@@ -98,9 +109,15 @@ try:
 
     print("Bluetooth Proximity Detection")
     print("=============================\n")
-    SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
-    SetRedLightOn()
+    turnOffLightsAndHBridge() # stop H Bridge in case gate was in motion!
+
+    # for boot up, flash lights 5 times
+    flashBothLights(5)
+    
+    # leave them on until we figure out a state
+    SetRedLightOn() 
     SetGreenLightOn()
+
 
     # load the real MAC List from file
     try:
@@ -190,6 +207,7 @@ try:
                 if desired_state == "opened" and current_state != "opened" and current_state != "opening":
                     if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened" and current_state != "waitBeforeOpen":
                         SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
+                        flashBothLights(3)
                         current_state = "waitBeforeOpen";
                         nStateChanged_ts = time.time()
                         SetHBridgeDirection(0) # stop H Bridge!
@@ -197,6 +215,7 @@ try:
                 if desired_state == "closed" and current_state != "closed" and current_state != "closing":
                     if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed" and current_state != "waitBeforeClose":
                         SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
+                        flashBothLights(3)
                         current_state = "waitBeforeClose";
                         nStateChanged_ts = time.time()
                         SetHBridgeDirection(0) # stop H Bridge!
@@ -206,6 +225,7 @@ try:
                     print(sDateTime , "# detected an approved device" , addr1 )
                 if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
                     SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
+                    flashBothLights(3)
                     current_state = "waitBeforeOpen";
                     nStateChanged_ts = time.time()
                     SetHBridgeDirection(0) # stop H Bridge!
@@ -235,6 +255,7 @@ try:
             if current_state == "waitBeforeOpen":
                 if nStateChanged_ts < time_s - nSecondsToWaitBeforeOpen:
                     # 30 seconds has expired, change state, new ts!
+                    flashBothLights(3)
                     current_state = "opening"
                     nStateChanged_ts = time_s
             
@@ -242,12 +263,14 @@ try:
                 if nStateChanged_ts < time_s-nSecondsToRunOpening:
                     # 30 seconds has expired, change state, new ts!
                     SetHBridgeDirection(0)
+                    flashBothLights(2)
                     current_state = "opened"
                     nStateChanged_ts = time_s
                     
             if current_state == "waitBeforeClose":
                 if nStateChanged_ts < time_s-nSecondsToWaitBeforeClose:
                     # 30 seconds has expired, change state, new ts!
+                    flashBothLights(3)
                     current_state = "closing"
                     nStateChanged_ts = time_s
             
@@ -255,6 +278,7 @@ try:
                 if nStateChanged_ts < time_s - nSecondsToRunClosing:
                     # 30 seconds has expired, change state, new ts!
                     SetHBridgeDirection(0)
+                    flashBothLights(2)
                     current_state = "closed"
                     nStateChanged_ts = time_s
             
