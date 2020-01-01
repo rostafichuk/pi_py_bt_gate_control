@@ -24,8 +24,8 @@ closeHour_24 = int(vMode[2]) # close at 9pm = 21 for "night" mode
 # time values used to adjust the delays between states of the gate system
 nSecondsToWaitBeforeOpen = 5
 nSecondsToWaitBeforeClose = 20
-nSecondsToRunOpening = 50
-nSecondsToRunClosing = 50
+nSecondsToRunOpening = 60
+nSecondsToRunClosing = 60
 
 # system states = waitBeforeOpen,opening,opened,waitBeforeClose,closing,closed
 current_state = "unknown" # onstartup we need to be in a transition state to make sure gate gets moved
