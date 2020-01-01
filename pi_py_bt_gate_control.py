@@ -34,11 +34,9 @@ nStateChanged_ts = time.time()
 
 # set raspi pin outputs
 pin_HBridge_1 = 17
-pin_HBridge_2 = 27
+pin_HBridge_2 = 25 # was pin 27, may be burned out...
 pin_led_green = 23
-pin_led_red = 24
-#pin_emergency_stop = 25
-#pin_motion_detection = 21 # used to take a picture at the gate
+pin_led_red = 21 # was pin 24, may be burned out...
 
 def SetRedLightOn():
     io.output(pin_led_red,0)
