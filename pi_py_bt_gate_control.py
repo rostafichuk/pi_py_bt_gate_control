@@ -8,11 +8,8 @@
 from picamera import PiCamera
 import bluetooth, time, datetime
 import RPi.GPIO as io # using RPi.GPIO
-from gpiozero import CPUTemperature
 
 bCameraExists = 1
-
-cpu = CPUTemperature()
 
 # You can hardcode the desired device ID here as a string to skip the discovery stage but you need to disable the load below
 vAddr = ["A1:B1:C1:D1:E1:F1"] # list of approved Bluetooth MAC addresses
@@ -320,9 +317,7 @@ try:
 
         # Arbitrary wait time to reduce cpu load
         # Pi4 uses 2% CPU typically for this program
-        # if the CPU is super cold, then DO NOT SLEEP, try to use CPU cycles to heat the pi!
-        if cpu.temperature > 20.0:
-            time.sleep(0.5)
+        time.sleep(0.5)
 except KeyboardInterrupt:
     pass
 finally:
