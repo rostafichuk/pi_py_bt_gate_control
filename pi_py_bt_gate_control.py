@@ -207,7 +207,6 @@ try:
                 if desired_state == "opened":
                     if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
                         SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
-                        flashBothLights(3)
                         current_state = "waitBeforeOpen";
                         nStateChanged_ts = time.time()
                         SetHBridgeDirection(0) # stop H Bridge!
@@ -226,7 +225,6 @@ try:
                     print(sDateTime , "# detected an approved device" , addr1 )
                 if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
                     SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
-                    flashBothLights(3)
                     current_state = "waitBeforeOpen";
                     nStateChanged_ts = time.time()
                     SetHBridgeDirection(0) # stop H Bridge!
@@ -256,7 +254,6 @@ try:
             if current_state == "waitBeforeOpen":
                 if nStateChanged_ts < time_s - nSecondsToWaitBeforeOpen:
                     # 30 seconds has expired, change state, new ts!
-                    flashBothLights(3)
                     current_state = "opening"
                     nStateChanged_ts = time_s
             
@@ -264,14 +261,12 @@ try:
                 if nStateChanged_ts < time_s-nSecondsToRunOpening:
                     # 30 seconds has expired, change state, new ts!
                     SetHBridgeDirection(0)
-                    flashBothLights(2)
                     current_state = "opened"
                     nStateChanged_ts = time_s
                     
             if current_state == "waitBeforeClose":
                 if nStateChanged_ts < time_s-nSecondsToWaitBeforeClose:
                     # 30 seconds has expired, change state, new ts!
-                    flashBothLights(3)
                     current_state = "closing"
                     nStateChanged_ts = time_s
             
@@ -279,7 +274,6 @@ try:
                 if nStateChanged_ts < time_s - nSecondsToRunClosing:
                     # 30 seconds has expired, change state, new ts!
                     SetHBridgeDirection(0)
-                    flashBothLights(2)
                     current_state = "closed"
                     nStateChanged_ts = time_s
             
