@@ -106,6 +106,9 @@ try:
     try:
         with open('MACList.txt', 'r') as f:
             vAddr = f.read().splitlines()
+    except:
+        print( "ERROR: missing MACList.txt! default to no approved devices" )
+        vAddr = ["A1:B1:C1:D1:E1:F1"] # need a list to prevent a crash
     finally:
         print( "Loaded Approved MAC List:")
         print( vAddr )
@@ -138,6 +141,10 @@ try:
                 openHour_24 = int(vMode[1])
             if len(vMode) > 2 and len(vMode[2]) > 0:
                 closeHour_24 = int(vMode[2])
+        except:
+            # prevent crash, use default mode of open
+            print( "ERROR: missing GateMode.txt! default to Open Gate" )
+            sPrimaryGateMode = "open"
         finally:
             if sPrevGateMode != sPrimaryGateMode:
                 if sPrimaryGateMode == "night":
