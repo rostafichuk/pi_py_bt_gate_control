@@ -204,16 +204,17 @@ try:
                 if nStateChanged_ts > time_s-1:
                     print(sDateTime , "No approved device in range!")
                     
-                if desired_state == "opened" and current_state != "opened" and current_state != "opening":
-                    if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened" and current_state != "waitBeforeOpen":
+                if desired_state == "opened":
+                    if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
                         SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
                         flashBothLights(3)
                         current_state = "waitBeforeOpen";
                         nStateChanged_ts = time.time()
                         SetHBridgeDirection(0) # stop H Bridge!
                         print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
-                if desired_state == "closed" and current_state != "closed" and current_state != "closing":
-                    if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed" and current_state != "waitBeforeClose":
+                if desired_state == "closed" and current_state != "opening":
+                    # do not start to close until opening is completed
+                    if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed":
                         SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
                         flashBothLights(3)
                         current_state = "waitBeforeClose";
