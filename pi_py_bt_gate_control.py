@@ -14,11 +14,11 @@ bCameraExists = 1
 # You can hardcode the desired device ID here as a string to skip the discovery stage but you need to disable the load below
 vAddr = ["A1:B1:C1:D1:E1:F1"] # list of approved Bluetooth MAC addresses
 
-vMode = ["open","8","21"] # mode [night,open,closed], open 24hr time, closed 24hr time
+vMode = ["closed","8","21"] # mode [night,open,closed], open 24hr time, closed 24hr time
 # Primary Gate Mode
 sPrimaryGateMode = vMode[0] # can be "night" or "closed" or "open"
-openHour_24 = int(vMode[1]) # open at 8 am for "night" mode
-closeHour_24 = int(vMode[2]) # close at 9pm for "night" mode
+openHour_24 = int(vMode[1]) # open at 8 am = 8 for "night" mode
+closeHour_24 = int(vMode[2]) # close at 9pm = 21 for "night" mode
 
 
 # time values used to adjust the delays between states of the gate system
@@ -28,7 +28,7 @@ nSecondsToRunOpening = 40
 nSecondsToRunClosing = 40
 # system states = waitBeforeOpen,opening,opened,waitBeforeClose,closing,closed
 current_state = "unknown" # onstartup we need to be in a transition state to make sure gate gets moved
-desired_state = "opened" # onstartup assume gate should be opened and is in an unknown state
+desired_state = "closed" # onstartup we want to close the gate
 nStateChanged_ts = time.time()
 
 
@@ -38,7 +38,7 @@ pin_HBridge_2 = 27
 pin_led_green = 23
 pin_led_red = 24
 #pin_emergency_stop = 25
-pin_motion_detection = 21 # used to take a picture at the gate
+#pin_motion_detection = 21 # used to take a picture at the gate
 
 def SetRedLightOn():
     io.output(pin_led_red,0)
@@ -96,7 +96,7 @@ try:
     io.setup(pin_HBridge_1,io.OUT)
     io.setup(pin_HBridge_2,io.OUT)
 
-    io.setup(pin_motion_detection,io.IN, pull_up_down=io.PUD_UP)
+    # io.setup(pin_motion_detection,io.IN, pull_up_down=io.PUD_UP)
 
     print("Bluetooth Proximity Detection")
     print("=============================\n")
@@ -174,43 +174,42 @@ try:
                     if btDeviceName != None:
                         break # found an approved device, ok to exit loop!
             
-        if bCameraExists and io.input(pin_motion_detection) == 0 and time_s > lastTimeForPic_s + 5:
-            # take a picture and send it via wifi to server
-            sPictureFileName = "/tmp/pic"+time_s+".jpg";
-            camera.capture(sPictureFileName)
-            lastTimeForPic_s = time.time()
-            print(sDateTime , "Motion event, picture taken")
-
-        # do normal operations
-        # Flip the LED pin on or off depending on whether the device is nearby
-        if btDeviceName == None:
-            if nStateChanged_ts > time_s-1:
-                print(sDateTime , "No approved device in range!")
-                
-            if desired_state == "opened" and current_state != "opened":
+            # do normal operations
+            # Flip the LED pin on or off depending on whether the device is nearby
+            if btDeviceName == None:
+                if nStateChanged_ts > time_s-1:
+                    print(sDateTime , "No approved device in range!")
+                    
+                if desired_state == "opened" and current_state != "opened":
+                    if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
+                        SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
+                        current_state = "waitBeforeOpen";
+                        nStateChanged_ts = time.time()
+                        SetHBridgeDirection(0) # stop H Bridge!
+                        print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
+                if desired_state == "closed" and current_state != "closed":
+                    if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed":
+                        SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
+                        current_state = "waitBeforeClose";
+                        nStateChanged_ts = time.time()
+                        SetHBridgeDirection(0) # stop H Bridge!
+                        print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
+            else:
+                if nStateChanged_ts > time_s-1:
+                    print(sDateTime , "# detected an approved device" , addr1 )
                 if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
                     SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
                     current_state = "waitBeforeOpen";
                     nStateChanged_ts = time.time()
                     SetHBridgeDirection(0) # stop H Bridge!
-                    print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
-            if desired_state == "closed" and current_state != "closed":
-                if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed":
-                    SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
-                    current_state = "waitBeforeClose";
-                    nStateChanged_ts = time.time()
-                    SetHBridgeDirection(0) # stop H Bridge!
-                    print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
-        else:
-            if nStateChanged_ts > time_s-1:
-                print(sDateTime , "# detected an approved device" , addr1 )
-            if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
-                SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
-                current_state = "waitBeforeOpen";
-                nStateChanged_ts = time.time()
-                SetHBridgeDirection(0) # stop H Bridge!
-                print(sDateTime , addr1, " ", btDeviceName, " detected! Open the Gate in " , nSecondsToWaitBeforeOpen, "s! ", nStateChanged_ts)
+                    print(sDateTime , addr1, " ", btDeviceName, " detected! Open the Gate in " , nSecondsToWaitBeforeOpen, "s! ", nStateChanged_ts)
                 
+#        if bCameraExists and io.input(pin_motion_detection) == 0 and time_s > lastTimeForPic_s + 5:
+            # take a picture and send it via wifi to server
+#            sPictureFileName = "/tmp/pic"+time_s+".jpg";
+#            camera.capture(sPictureFileName)
+#            lastTimeForPic_s = time.time()
+#            print(sDateTime , "Motion event, picture taken")
 
         # handle state CHANGES!
         # ===================================================
@@ -246,42 +245,33 @@ try:
         # Handle behaviour during a specific state
         # ===================================================
         if current_state == "waitBeforeOpen":
-            print(current_state,"#flash green light")
+            print(current_state,"green light")
             SetRedLightOff()
-            if nLoop % 2 == 0:
-                SetGreenLightOn()
-            else:
-                SetGreenLightOff()
-
+            SetGreenLightOn()
 
         if current_state == "opening":
-            print(current_state, "#Solid green light","#set H bridge circuit to open gate")
+            print(current_state, "green light","set H bridge circuit to open gate")
             SetGreenLightOn()
             SetRedLightOff()
             SetHBridgeDirection(-1)
             
         if current_state == "opened":
             if nStateChanged_ts > time_s-1:
-                print(current_state,"#turn off lights and H Bridge")
                 turnOffLightsAndHBridge()
             
         if current_state == "waitBeforeClose":
-            print(current_state,"# flash red light")
+            print(current_state,"red light")
             SetGreenLightOff()
-            if nLoop % 2 == 0:
-                SetRedLightOn()
-            else:
-                SetRedLightOff()            
+            SetRedLightOn()
 
         if current_state == "closing":
-            print(current_state,"# Solid red light","# set H bridge circuit to close gate")
+            print(current_state,"red light","set H bridge circuit to close gate")
             SetRedLightOn()
             SetGreenLightOff()
             SetHBridgeDirection(1)
 
         if current_state == "closed":
             if nStateChanged_ts > time_s-1:
-                print(current_state,"#turn off lights and H Bridge")
                 turnOffLightsAndHBridge()        
 
         # Arbitrary wait time to reduce cpu load
