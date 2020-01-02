@@ -20,9 +20,10 @@ sPrimaryGateMode = vMode[0] # can be "night" or "closed" or "open"
 openHour_24 = int(vMode[1]) # open at 8 am = 8 for "night" mode
 closeHour_24 = int(vMode[2]) # close at 9pm = 21 for "night" mode
 
+sDateTime = datetime.datetime.now()
 
 # time values used to adjust the delays between states of the gate system
-nSecondsToWaitBeforeOpen = 5
+nSecondsToWaitBeforeOpen = 1
 nSecondsToWaitBeforeClose = 20
 nSecondsToRunOpening = 60
 nSecondsToRunClosing = 60
@@ -31,6 +32,7 @@ nSecondsToRunClosing = 60
 current_state = "unknown" # onstartup we need to be in a transition state to make sure gate gets moved
 desired_state = "closed" # onstartup we want to close the gate
 nStateChanged_ts = time.time()
+nLastApprovedDevice_ts = time.time() - 60*60
 
 
 # set raspi pin outputs
@@ -38,6 +40,25 @@ pin_HBridge_1 = 17
 pin_HBridge_2 = 25 # was pin 27, may be burned out...
 pin_led_green = 23
 pin_led_red = 5 # was pin 24, may be burned out...
+
+sLastMsg = ""
+
+def OutputMessage(sMsg):
+    # output message to screen and append to a file
+    global sLastMsg
+    global sDateTime
+    # only output new messages, but include a timestamp
+    if sMsg != sLastMsg:
+        print( sDateTime, sMsg )
+        sLastMsg = sMsg
+        try:
+            fLog = open("Log.txt","at")
+            sMsg = sDateTime.strftime("%Y-%m-%d %H:%M:%S") + ' ' + sMsg + '\n'
+            fLog.write(sMsg)
+            fLog.close()
+        except:
+            print( "Failed to Log Msg" )
+
 
 def SetRedLightOn():
     io.output(pin_led_red,0)
@@ -54,7 +75,7 @@ def SetHBridgeDirection(n):
         # turn off
         io.output(pin_HBridge_1,1)
         io.output(pin_HBridge_2,1)
-        print("Stop Gate Motion")
+        OutputMessage("Stop Gate Motion")
     elif n > 0:
         io.output(pin_HBridge_1,0)
         io.output(pin_HBridge_2,1)
@@ -63,9 +84,12 @@ def SetHBridgeDirection(n):
         io.output(pin_HBridge_2,0)
 
 def turnOffLightsAndHBridge():
+    OutputMessage( "All outputs Off" )
     SetRedLightOff()
     SetGreenLightOff()
-    SetHBridgeDirection(0)
+    # Turn HBridge off!
+    io.output(pin_HBridge_1,1)
+    io.output(pin_HBridge_2,1)
 
 def flashBothLights(n):
     print( "Flash both lights", n , "times" )
@@ -95,7 +119,7 @@ try:
             print( "Camera Ready")
         
     
-    print( "Setting up the GPIO pins")
+    OutputMessage( "Setting up the GPIO pins")
     io.setmode(io.BCM)
 
     # set pin modes
@@ -107,8 +131,8 @@ try:
 
     # io.setup(pin_motion_detection,io.IN, pull_up_down=io.PUD_UP)
 
-    print("Bluetooth Proximity Detection")
-    print("=============================\n")
+    OutputMessage("Bluetooth Proximity Detection")
+    OutputMessage("=============================\n")
     turnOffLightsAndHBridge() # stop H Bridge in case gate was in motion!
 
     # for boot up, flash lights 3 times
@@ -124,7 +148,7 @@ try:
         with open('MACList.txt', 'r') as f:
             vAddr = f.read().splitlines()
     except:
-        print( "ERROR: missing MACList.txt! default to no approved devices" )
+        OutputMessage( "ERROR: missing MACList.txt! default to no approved devices" )
         vAddr = ["A1:B1:C1:D1:E1:F1"] # need a list to prevent a crash
         flashBothLights(7)
     finally:
@@ -135,7 +159,7 @@ try:
     # system time
     localtime = time.localtime(time.time())
 
-    print("Begin Scanning for approved devices...")
+    OutputMessage("Begin Scanning for approved devices...")
 
     #GPIO.setup(led_pin, GPIO.OUT)
     nLoop = -1
@@ -166,10 +190,12 @@ try:
                 sPrimaryGateMode = "open"
             finally:
                 if sPrevGateMode != sPrimaryGateMode:
+                    sMsg = 'Gate Mode Changed -> ' + sPrimaryGateMode
+
                     if sPrimaryGateMode == "night":
-                        print(sDateTime , "Gate Mode Changed ->" , sPrimaryGateMode , " open=" , openHour_24 , " close=" , closeHour_24 )
-                    else:
-                        print(sDateTime , "Gate Mode Changed ->" , sPrimaryGateMode )
+                        sMsg += sPrimaryGateMode , " open=" , str(openHour_24) , " close=" , str(closeHour_24)
+                        
+                    OutputMessage(sMsg)
 
         # set the desired_state based on the Primary Gate Mode
         if sPrimaryGateMode == "night":
@@ -191,21 +217,30 @@ try:
         # ===================================================
         # We're using two different metrics (readable name and data services)
         # to reduce false negatives.
-        if nLoop % 4 == 0:
-            # only check the blue tooth once every 4 loops or 2 seconds
+        if nLoop % 2 == 0:
+            # only check the blue tooth once every 2 loops or 2 seconds
+            btPrevDeviceName = None
             btDeviceName = None
             for addr1 in vAddr:
                 if ":" in addr1:
                     btDeviceName = bluetooth.lookup_name(addr1, timeout=10)
                     if btDeviceName != None:
+                        nLastApprovedDevice_ts = time_s # mark time of last approved device
+                        # write to a log if new name
+                        if btPrevDeviceName != btDeviceName:
+                            try:
+                                fLog = open("MACLog.txt","at")
+                                sMsg = sDateTime.strftime("%Y-%m-%d %H:%M:%S") + " " + btDeviceName + " " + addr1 + '\n'
+                                fLog.write(sMsg)
+                                fLog.close()
+                            except:
+                                print( "Failed to Log MAC" )
+                        
                         break # found an approved device, ok to exit loop!
             
-            # do normal operations
-            # Flip the LED pin on or off depending on whether the device is nearby
-            if btDeviceName == None:
-                if nStateChanged_ts > time_s-1:
-                    print(sDateTime , "No approved device in range!")
-                    
+            # do operations based on approved device
+            if nLastApprovedDevice_ts < time_s - nSecondsToWaitBeforeClose:
+                # no approved device in over 20 seconds
                 if desired_state == "opened":
                     if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
                         turnOffLightsAndHBridge()
@@ -213,8 +248,7 @@ try:
                         SetRedLightOff()
                         SetGreenLightOn()
                         nStateChanged_ts = time.time()
-                        
-                        print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
+                        OutputMessage("No approved device in range... Set Gate to " + desired_state + " in " + str(nSecondsToWaitBeforeClose) + " seconds")
                 if desired_state == "closed" and current_state != "opening":
                     # do not start to close until opening is completed
                     if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed":
@@ -224,17 +258,15 @@ try:
                         SetRedLightOn()
                         SetGreenLightOff()
                         nStateChanged_ts = time.time()
-                        print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
+                        OutputMessage("No approved device in range... Set Gate to " + desired_state + " in " + str(nSecondsToWaitBeforeClose) + " seconds")
             else:
-                if nStateChanged_ts > time_s-1:
-                    print(sDateTime , "# detected an approved device" , addr1 )
                 if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
                     turnOffLightsAndHBridge()
                     current_state = "waitBeforeOpen";
                     SetRedLightOff()
                     SetGreenLightOn()
                     nStateChanged_ts = time.time()
-                    print(sDateTime , addr1, " ", btDeviceName, " detected! Open the Gate in " , nSecondsToWaitBeforeOpen, "s! ", nStateChanged_ts)
+                    OutputMessage( "Detected " + btDeviceName + " [" + addr1 + "] Open the Gate in " + str(nSecondsToWaitBeforeOpen) + " seconds")
                 
 #        if bCameraExists and io.input(pin_motion_detection) == 0 and time_s > lastTimeForPic_s + 5:
             # take a picture and send it via wifi to server
@@ -287,12 +319,12 @@ try:
             # Handle behaviour during a specific state
             # ===================================================
             if current_state == "waitBeforeOpen":
-                print(current_state,"[green]")
+                OutputMessage("waitBeforeOpen [green]")
                 SetRedLightOff()
                 SetGreenLightOn()
 
             if current_state == "opening":
-                print(current_state, "[green] set H bridge circuit to open gate")
+                OutputMessage("opening [green] set H bridge circuit to open gate for " + str(nSecondsToRunOpening) + " seconds")
                 SetGreenLightOn()
                 SetRedLightOff()
                 SetHBridgeDirection(-1)
@@ -302,12 +334,12 @@ try:
                     turnOffLightsAndHBridge()
                 
             if current_state == "waitBeforeClose":
-                print(current_state,"[red]")
+                OutputMessage("waitBeforeClose [red]")
                 SetGreenLightOff()
                 SetRedLightOn()
 
             if current_state == "closing":
-                print(current_state,"[red] set H bridge circuit to close gate")
+                OutputMessage("closing [red] set H bridge circuit to close gate for " + str(nSecondsToRunClosing) +" seconds")
                 SetRedLightOn()
                 SetGreenLightOff()
                 SetHBridgeDirection(1)
