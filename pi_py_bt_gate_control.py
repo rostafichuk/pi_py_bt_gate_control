@@ -350,7 +350,7 @@ try:
 
         # Arbitrary wait time to reduce cpu load
         # Pi4 uses 2% CPU typically for this program
-        time.sleep(0.5)
+        time.sleep(0.2)
 except KeyboardInterrupt:
     pass
 finally:
