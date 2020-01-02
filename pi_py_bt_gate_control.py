@@ -111,8 +111,8 @@ try:
     print("=============================\n")
     turnOffLightsAndHBridge() # stop H Bridge in case gate was in motion!
 
-    # for boot up, flash lights 5 times
-    flashBothLights(5)
+    # for boot up, flash lights 3 times
+    flashBothLights(3)
     
     # leave them on until we figure out a state
     SetRedLightOn() 
@@ -126,6 +126,7 @@ try:
     except:
         print( "ERROR: missing MACList.txt! default to no approved devices" )
         vAddr = ["A1:B1:C1:D1:E1:F1"] # need a list to prevent a crash
+        flashBothLights(7)
     finally:
         print( "Loaded Approved MAC List:")
         print( vAddr )
@@ -137,7 +138,7 @@ try:
     print("Begin Scanning for approved devices...")
 
     #GPIO.setup(led_pin, GPIO.OUT)
-    nLoop = 0
+    nLoop = -1
     btDeviceName = None
     while True:
         # always need the current time!
@@ -146,28 +147,29 @@ try:
         localtime = time.localtime(time_s) # keep localtime current
         sDateTime = datetime.datetime.now()
 
-        # Once every 15 seconds load the primary gate mode and parameters from text file
-        sPrevGateMode = sPrimaryGateMode
-        try:
-            with open('GateMode.txt', 'r') as f:
-                vMode = f.read().splitlines()
-                
-            if len(vMode) > 0 and len(vMode[0]) > 2:
-                sPrimaryGateMode = vMode[0].lower()
-            if len(vMode) > 1 and len(vMode[1]) > 0:
-                openHour_24 = int(vMode[1])
-            if len(vMode) > 2 and len(vMode[2]) > 0:
-                closeHour_24 = int(vMode[2])
-        except:
-            # prevent crash, use default mode of open
-            print( "ERROR: missing GateMode.txt! default to Open Gate" )
-            sPrimaryGateMode = "open"
-        finally:
-            if sPrevGateMode != sPrimaryGateMode:
-                if sPrimaryGateMode == "night":
-                    print(sDateTime , "Gate Mode Changed ->" , sPrimaryGateMode , " open=" , openHour_24 , " close=" , closeHour_24 )
-                else:
-                    print(sDateTime , "Gate Mode Changed ->" , sPrimaryGateMode )
+        if nLoop % 10 == 0:            
+            # Once every 10 loops load the primary gate mode and parameters from text file
+            sPrevGateMode = sPrimaryGateMode
+            try:
+                with open('GateMode.txt', 'r') as f:
+                    vMode = f.read().splitlines()
+                    
+                if len(vMode) > 0 and len(vMode[0]) > 2:
+                    sPrimaryGateMode = vMode[0].lower()
+                if len(vMode) > 1 and len(vMode[1]) > 0:
+                    openHour_24 = int(vMode[1])
+                if len(vMode) > 2 and len(vMode[2]) > 0:
+                    closeHour_24 = int(vMode[2])
+            except:
+                # prevent crash, use default mode of open
+                print( "ERROR: missing GateMode.txt! default to Open Gate" )
+                sPrimaryGateMode = "open"
+            finally:
+                if sPrevGateMode != sPrimaryGateMode:
+                    if sPrimaryGateMode == "night":
+                        print(sDateTime , "Gate Mode Changed ->" , sPrimaryGateMode , " open=" , openHour_24 , " close=" , closeHour_24 )
+                    else:
+                        print(sDateTime , "Gate Mode Changed ->" , sPrimaryGateMode )
 
         # set the desired_state based on the Primary Gate Mode
         if sPrimaryGateMode == "night":
@@ -206,28 +208,32 @@ try:
                     
                 if desired_state == "opened":
                     if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
-                        SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
+                        turnOffLightsAndHBridge()
                         current_state = "waitBeforeOpen";
+                        SetRedLightOff()
+                        SetGreenLightOn()
                         nStateChanged_ts = time.time()
-                        SetHBridgeDirection(0) # stop H Bridge!
+                        
                         print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
                 if desired_state == "closed" and current_state != "opening":
                     # do not start to close until opening is completed
                     if current_state != "waitBeforeClose" and current_state != "closing" and current_state != "closed":
-                        SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
                         flashBothLights(3)
+                        turnOffLightsAndHBridge()
                         current_state = "waitBeforeClose";
+                        SetRedLightOn()
+                        SetGreenLightOff()
                         nStateChanged_ts = time.time()
-                        SetHBridgeDirection(0) # stop H Bridge!
                         print(sDateTime , "No approved device in range... Set Gate to " , desired_state, " in ", nSecondsToWaitBeforeClose , "seconds! ", nStateChanged_ts)
             else:
                 if nStateChanged_ts > time_s-1:
                     print(sDateTime , "# detected an approved device" , addr1 )
                 if current_state != "waitBeforeOpen" and current_state != "opening" and current_state != "opened":
-                    SetHBridgeDirection(0) # stop H Bridge in case gate was in motion!
+                    turnOffLightsAndHBridge()
                     current_state = "waitBeforeOpen";
+                    SetRedLightOff()
+                    SetGreenLightOn()
                     nStateChanged_ts = time.time()
-                    SetHBridgeDirection(0) # stop H Bridge!
                     print(sDateTime , addr1, " ", btDeviceName, " detected! Open the Gate in " , nSecondsToWaitBeforeOpen, "s! ", nStateChanged_ts)
                 
 #        if bCameraExists and io.input(pin_motion_detection) == 0 and time_s > lastTimeForPic_s + 5:
@@ -259,21 +265,21 @@ try:
             
             if current_state == "opening":
                 if nStateChanged_ts < time_s-nSecondsToRunOpening:
-                    # 30 seconds has expired, change state, new ts!
-                    SetHBridgeDirection(0)
+                    # ? seconds has expired, change state, new ts!
+                    turnOffLightsAndHBridge()
                     current_state = "opened"
                     nStateChanged_ts = time_s
                     
             if current_state == "waitBeforeClose":
                 if nStateChanged_ts < time_s-nSecondsToWaitBeforeClose:
-                    # 30 seconds has expired, change state, new ts!
+                    # ? seconds has expired, change state, new ts!
                     current_state = "closing"
                     nStateChanged_ts = time_s
             
             if current_state == "closing":
                 if nStateChanged_ts < time_s - nSecondsToRunClosing:
                     # 30 seconds has expired, change state, new ts!
-                    SetHBridgeDirection(0)
+                    turnOffLightsAndHBridge()
                     current_state = "closed"
                     nStateChanged_ts = time_s
             
