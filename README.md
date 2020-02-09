@@ -12,14 +12,25 @@ Use it at your own risk!
 
 How to use this:
 You will need to create a file in the same directory as the code.  
-  Name the file MACList.txt and put in the MAC addresses of all the devices you want to open the gate (one on each line).  The devices do not need to be discoverable or even paired to the PI for this code to work.
+  Name the file MACList.txt and put in the MAC addresses of all the devices you want to open the gate (one on each line).  You can use any line as a comment as long as it does not contain a colon.  The devices do not need to be discoverable or even paired to the PI for this code to work.
  
+To Set the default Gate mode create a text file in the same folder named GateMode.txt
+This file contains three possible things:
+open
+closed
+night
+
+Meaning:
+open = open always (effectively not in use)
+closed = closed unless valid MAC detected
+note: night means closed from 10pm to 8am, but will open for valid MAC
+
 I will be posting the code and instructions on building the hardware on my personal website www.ostafichuk.com when I get a chance...
 
 
 Run these commands to get bluetooth and gpio working:
 
-sudo apt-get install python3, python3-dev, python3-pip, python3-rpi.gpio, bluetooth, libbluetooth-dev
+sudo apt-get install python3 python3-dev python3-pip python3-rpi.gpio bluetooth libbluetooth-dev
 
 sudo pip3 install RPi.GPIO
 
