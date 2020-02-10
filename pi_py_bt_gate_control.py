@@ -10,6 +10,7 @@ import bluetooth, time, datetime
 import RPi.GPIO as io # using RPi.GPIO
 
 bCameraExists = 1
+bWriteOutputMessages = 0
 
 # You can hardcode the desired device ID here as a string to skip the discovery stage but you need to disable the load below
 vAddr = ["A1:B1:C1:D1:E1:F1"] # list of approved Bluetooth MAC addresses
@@ -53,13 +54,14 @@ def OutputMessage(sMsg):
     if sMsg != sLastMsg:
         print( sDateTime, sMsg )
         sLastMsg = sMsg
-        try:
-            fLog = open("Log.txt","at")
-            sMsg = sDateTime.strftime("%Y-%m-%d %H:%M:%S") + ' ' + sMsg + '\n'
-            fLog.write(sMsg)
-            fLog.close()
-        except:
-            print( "Failed to Log Msg" )
+        if bWriteOutputMessages == 1: # only write the log to a file if we are debugging!!!! SLOW!!!!
+            try:
+                fLog = open("Log.txt","at")
+                sMsg = sDateTime.strftime("%Y-%m-%d %H:%M:%S") + ' ' + sMsg + '\n'
+                fLog.write(sMsg)
+                fLog.close()
+            except:
+                print( "Failed to Log Msg" )
 
 
 def SetRedLightOn():
@@ -132,7 +134,6 @@ try:
     io.setup(pin_HBridge_2,io.OUT)
 
     # io.setup(pin_motion_detection,io.IN, pull_up_down=io.PUD_UP)
-
     OutputMessage("Bluetooth Proximity Detection")
     OutputMessage("=============================\n")
     turnOffLightsAndHBridge() # stop H Bridge in case gate was in motion!
@@ -173,8 +174,8 @@ try:
         localtime = time.localtime(time_s) # keep localtime current
         sDateTime = datetime.datetime.now()
 
-        if nLoop % 10 == 0:            
-            # Once every 10 loops load the primary gate mode and parameters from text file
+        if nLoop % 60 == 0:            
+            # Once every 60 loops load the primary gate mode and parameters from text file
             sPrevGateMode = sPrimaryGateMode
             try:
                 with open('GateMode.txt', 'r') as f:
@@ -350,9 +351,9 @@ try:
                 if nStateChanged_ts > time_s-1:
                     turnOffLightsAndHBridge()        
 
-        # Arbitrary wait time to reduce cpu load
+        # Arbitrary wait time to reduce cpu load (check once per second at most!!!!)
         # Pi4 uses 2% CPU typically for this program
-        time.sleep(0.2)
+        time.sleep(1.0)
 except KeyboardInterrupt:
     pass
 finally:
