@@ -20,6 +20,8 @@ sPrimaryGateMode = vMode[0] # can be "night" or "closed" or "open"
 openHour_24 = int(vMode[1]) # open at 8 am = 8 for "night" mode
 closeHour_24 = int(vMode[2]) # close at 9pm = 21 for "night" mode
 
+time.sleep(30) # need to wait for BT device on Pi3 on bootup!
+
 sDateTime = datetime.datetime.now()
 
 # time values used to adjust the delays between states of the gate system
