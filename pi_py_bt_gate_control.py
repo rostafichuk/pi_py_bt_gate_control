@@ -277,7 +277,7 @@ try:
                 
         if io.input(pin_open) == 0 :
             print( "Open pin is shorted, force gate open" )
-            desired_state = "open"
+            desired_state = "opened"
             
 #        if bCameraExists and io.input(pin_motion_detection) == 0 and time_s > lastTimeForPic_s + 5:
             # take a picture and send it via wifi to server
