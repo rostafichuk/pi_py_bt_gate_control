@@ -9,7 +9,7 @@ from picamera import PiCamera
 import bluetooth, time, datetime
 import RPi.GPIO as io # using RPi.GPIO
 
-bCameraExists = 1
+bCameraExists = 0 # don't use the camera on pizero, too slow!
 bWriteOutputMessages = 0
 
 # You can hardcode the desired device ID here as a string to skip the discovery stage but you need to disable the load below
@@ -21,6 +21,7 @@ sPrimaryGateMode = vMode[0] # can be "night" or "closed" or "open"
 openHour_24 = int(vMode[1]) # open at 8 am = 8 for "night" mode
 closeHour_24 = int(vMode[2]) # close at 9pm = 21 for "night" mode
 
+print( "Waiting 30 seconds to allow wireless ssh connection" )
 time.sleep(30) # need to wait for BT device on Pi3 on bootup!
 
 sDateTime = datetime.datetime.now()
@@ -43,6 +44,7 @@ pin_HBridge_1 = 17
 pin_HBridge_2 = 25 # was pin 27, may be burned out...
 pin_led_green = 23
 pin_led_red = 5 # was pin 24, may be burned out...
+pin_open = 4 # force gate open
 
 sLastMsg = ""
 
@@ -133,6 +135,8 @@ try:
     io.setup(pin_HBridge_1,io.OUT)
     io.setup(pin_HBridge_2,io.OUT)
 
+    io.setup(pin_open, io.IN, pull_up_down=io.PUD_UP)
+    
     # io.setup(pin_motion_detection,io.IN, pull_up_down=io.PUD_UP)
     OutputMessage("Bluetooth Proximity Detection")
     OutputMessage("=============================\n")
@@ -174,8 +178,8 @@ try:
         localtime = time.localtime(time_s) # keep localtime current
         sDateTime = datetime.datetime.now()
 
-        if nLoop % 60 == 0:            
-            # Once every 60 loops load the primary gate mode and parameters from text file
+        if nLoop % 60*100 == 0:            
+            # Once every 60*100 loops load the primary gate mode and parameters from text file
             sPrevGateMode = sPrimaryGateMode
             try:
                 with open('GateMode.txt', 'r') as f:
@@ -226,7 +230,7 @@ try:
             btDeviceName = None
             for addr1 in vAddr:
                 if ":" in addr1:
-                    btDeviceName = bluetooth.lookup_name(addr1, timeout=10)
+                    btDeviceName = bluetooth.lookup_name(addr1, timeout=2)
                     if btDeviceName != None:
                         nLastApprovedDevice_ts = time_s # mark time of last approved device
                         # write to a log if new name
@@ -271,6 +275,10 @@ try:
                     nStateChanged_ts = time.time()
                     OutputMessage( "Detected " + btDeviceName + " [" + addr1 + "] Open the Gate in " + str(nSecondsToWaitBeforeOpen) + " seconds")
                 
+        if io.input(pin_open) == 0 :
+            print( "Open pin is shorted, force gate open" )
+            desired_state = "open"
+            
 #        if bCameraExists and io.input(pin_motion_detection) == 0 and time_s > lastTimeForPic_s + 5:
             # take a picture and send it via wifi to server
 #            sPictureFileName = "/tmp/pic"+time_s+".jpg";
